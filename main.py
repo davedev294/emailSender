@@ -1,45 +1,75 @@
+import json
+import os
+
+from dotenv import load_dotenv
 from services.csv_manager import CSVManager
 from services.mailer import Mailer
 
-csv_manager = CSVManager("destinatarios/destinatarios.csv")
+#Config
+with open("config/config.json", "r", encoding="utf-8") as f:
+    config = json.load(f)
+
+load_dotenv("config/.env")
+
+SENDER = config["sender"]
+PASSWORD = os.getenv("MAIL_PASSWORD")
+SUBJECT = config["subject"]
+
+NEWSLETTER_FILE = "newsletter/newsletter.html"
+CSV_FILE = "destinatarios/destinatarios.csv"
+
+BATCH_SIZE = config["batch_size"]
+
+print("SENDER:", SENDER)
+print("PASSWORD existe:", PASSWORD is not None)
+print("LONGITUD PASSWORD:", len(PASSWORD) if PASSWORD else 0)
+
+#Objects
+csv_manager = CSVManager(CSV_FILE)
 mailer = Mailer()
 
+#Data
 csv_manager.load()
+
 pendientes = csv_manager.pending()
 
-message = mailer.load_newsletter("newsletter/newsletter.html")
+newsletter = mailer.load_newsletter(NEWSLETTER_FILE)
+
 print("Newsletter cargado correctamente.")
 
-BATCH_SIZE = 50
+# PREPARAR LOTE
 
-lote = pendientes[:BATCH_SIZE]
+while pendientes:
 
-print(f"Pendientes: {len(pendientes)}")
-print(f"Lote de pendientes: {len(lote)}")
+    lote = pendientes[:BATCH_SIZE]
 
-#Esta sería la parte de envio de correos, pero por ahora solo es una simulación.
-for pendiente in lote:
+    print(f"Pendientes: {len(pendientes)}")
+    print(f"Lote de pendientes: {len(lote)}")
 
-    email = pendiente["email"]
+    for pendiente in lote:
 
-    try:
-        resultado = mailer.send_test(email, message)
+        email = pendiente["email"]
 
-        if resultado:
-            csv_manager.set_as_sent(email)
-            sendMessage = f"Correo enviado correctamente a {email}."
-            print(sendMessage)
+        try:
+            resultado = mailer.send_email(SUBJECT, newsletter, SENDER, email, PASSWORD)
+
+            if resultado:
+                csv_manager.set_as_sent(email)
+                sendMessage = f"Correo enviado correctamente a {email}."
+                print(sendMessage)
+
+                with open ("logs/envio.log", "a", encoding="utf-8") as log_file:
+                    log_file.write(sendMessage + "\n")
+
+        except Exception as error:
+            csv_manager.error(email, error)
+            errorMessage =f"Error al enviar correo a {email}: {error}"
+            print(errorMessage)
 
             with open ("logs/envio.log", "a", encoding="utf-8") as log_file:
-                log_file.write(sendMessage + "\n")
+                log_file.write(errorMessage + "\n")
 
-    except Exception as error:
-        csv_manager.error(email, error)
-        errorMessage =f"Error al enviar correo a {email}: {error}"
-        print(errorMessage)
+    print("Lote procesado. Guardando cambios en el CSV...")
+    csv_manager.save()
 
-        with open ("logs/envio.log", "a", encoding="utf-8") as log_file:
-            log_file.write(errorMessage + "\n")
-
-
-#csv_manager.save()
+    pendientes = csv_manager.pending()
