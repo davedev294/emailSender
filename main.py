@@ -1,5 +1,6 @@
 import json
 import os
+import time
 
 from dotenv import load_dotenv
 from services.csv_manager import CSVManager
@@ -15,14 +16,10 @@ SENDER = config["sender"]
 PASSWORD = os.getenv("MAIL_PASSWORD")
 SUBJECT = config["subject"]
 
-NEWSLETTER_FILE = "newsletter/newsletter.html"
+NEWSLETTER_FILE = "newsletter/PdB40.html"
 CSV_FILE = "destinatarios/destinatarios.csv"
 
 BATCH_SIZE = config["batch_size"]
-
-print("SENDER:", SENDER)
-print("PASSWORD existe:", PASSWORD is not None)
-print("LONGITUD PASSWORD:", len(PASSWORD) if PASSWORD else 0)
 
 #Objects
 csv_manager = CSVManager(CSV_FILE)
@@ -71,5 +68,9 @@ while pendientes:
 
     print("Lote procesado. Guardando cambios en el CSV...")
     csv_manager.save()
+
+    print("Esperando 1 minuto...")
+    time.sleep(60)
+    print("Continuando con el siguiente lote...")
 
     pendientes = csv_manager.pending()
