@@ -1,5 +1,5 @@
 {
-    "sender": "ruidav.salesianos24@gmail.com",
+    "sender": "",
     "subject": "Newsletter de prueba",
-    "batch_size": 5
+    "batch_size": 10
 }
